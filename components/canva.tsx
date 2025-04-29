@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import QwertyLogo from "@/components/additions/QwertyLogo";
-import ExampleAddition from "@/components/additions/ExampleAddition";
 import BitcoinPrice from "@/components/additions/BitcoinPrice";
 import DancingCat from "./additions/DancingCat";
 // Import all additions here as you create them
@@ -51,24 +50,24 @@ export default function InfiniteCanvas() {
 
   // Center the canvas initially
   useEffect(() => {
-    // Initial positioning - center the view on the middle of the canvas
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    
-    setPosition({
-      x: viewportWidth / 2 - GRID.centerX,
-      y: viewportHeight / 2 - GRID.centerY
-    });
-    
-    // Check for debug mode in URL params
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('debug') === 'true') {
-      setShowDebug(true);
+    if (typeof window !== "undefined") {
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+  
+      setPosition({
+        x: viewportWidth / 2 - GRID.centerX,
+        y: viewportHeight / 2 - GRID.centerY
+      });
+  
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('debug') === 'true') {
+        setShowDebug(true);
+      }
+  
+      setShowZoomControls(window.innerWidth < 768);
     }
-
-    // Check if device is mobile to show zoom controls
-    setShowZoomControls(window.innerWidth < 768);
   }, []);
+  
 
   // Handle keyboard shortcuts
   useEffect(() => {
