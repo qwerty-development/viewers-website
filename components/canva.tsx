@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect, useRef } from "react";
 import QwertyLogo from "@/components/additions/QwertyLogo";
 import BitcoinPrice from "@/components/additions/BitcoinPrice";
@@ -15,7 +17,7 @@ const GRID = {
 
 // Zoom configuration
 const ZOOM = {
-  min: 0.2,  // Minimum zoom level (50% of original size)
+  min: 0.2,  // Minimum zoom level (20% of original size)
   max: 2.0,  // Maximum zoom level (200% of original size)
   step: 0.1, // Step size for zoom changes
   default: 1.0 // Default/initial zoom level
@@ -47,30 +49,42 @@ export default function InfiniteCanvas() {
   const [showTip, setShowTip] = useState(true);
   const [showDebug, setShowDebug] = useState(false); // Toggle for debug info
   const [showZoomControls, setShowZoomControls] = useState(false); // Show zoom controls on mobile
+  const [isMounted, setIsMounted] = useState(false);
 
-  // Center the canvas initially
+  // Handle initial mount and client-side only code
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-  
-      setPosition({
-        x: viewportWidth / 2 - GRID.centerX,
-        y: viewportHeight / 2 - GRID.centerY
-      });
-  
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('debug') === 'true') {
-        setShowDebug(true);
-      }
-  
-      setShowZoomControls(window.innerWidth < 768);
+    setIsMounted(true);
+    
+    // Initial positioning - center the view on the middle of the canvas
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    setPosition({
+      x: viewportWidth / 2 - GRID.centerX,
+      y: viewportHeight / 2 - GRID.centerY
+    });
+    
+    // Check for debug mode in URL params
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('debug') === 'true') {
+      setShowDebug(true);
     }
+
+    // Check if device is mobile to show zoom controls
+    setShowZoomControls(window.innerWidth < 768);
+    
+    // Auto-hide the tip after 5 seconds
+    const timeout = setTimeout(() => {
+      setShowTip(false);
+    }, 5000);
+    
+    return () => clearTimeout(timeout);
   }, []);
-  
 
   // Handle keyboard shortcuts
   useEffect(() => {
+    if (!isMounted) return;
+    
     const handleKeyDown = (e: KeyboardEvent) => {
       // Toggle debug mode with "D" key
       if (e.key === 'd' || e.key === 'D') {
@@ -106,10 +120,12 @@ export default function InfiniteCanvas() {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [isMounted]);
 
   // Handle mouse wheel for zoom
   useEffect(() => {
+    if (!isMounted) return;
+    
     const handleWheel = (e: WheelEvent) => {
       // Don't zoom if ctrl key isn't pressed (for better accessibility)
       if (!e.ctrlKey) return;
@@ -147,10 +163,12 @@ export default function InfiniteCanvas() {
     // Add passive: false to prevent default browser zoom behavior
     window.addEventListener('wheel', handleWheel, { passive: false });
     return () => window.removeEventListener('wheel', handleWheel);
-  }, [zoomLevel, position]);
+  }, [zoomLevel, position, isMounted]);
 
   // Handle mouse/touch events for dragging and pinch zoom
   useEffect(() => {
+    if (!isMounted) return;
+    
     const canvas = canvasRef.current;
     
     // Early return if canvas ref is null
@@ -277,11 +295,6 @@ export default function InfiniteCanvas() {
     canvas.addEventListener('touchmove', handleTouchMove as EventListener, { passive: false });
     window.addEventListener('touchend', handleTouchEnd as EventListener);
     
-    // Auto-hide the tip after 5 seconds
-    const timeout = setTimeout(() => {
-      setShowTip(false);
-    }, 5000);
-    
     // Cleanup
     return () => {
       canvas.removeEventListener('mousedown', handleMouseDown as EventListener);
@@ -291,10 +304,8 @@ export default function InfiniteCanvas() {
       canvas.removeEventListener('touchstart', handleTouchStart as EventListener);
       canvas.removeEventListener('touchmove', handleTouchMove as EventListener);
       window.removeEventListener('touchend', handleTouchEnd as EventListener);
-      
-      clearTimeout(timeout);
     };
-  }, [isDragging, position, startPos, zoomLevel, lastDistance]);
+  }, [isDragging, position, startPos, zoomLevel, lastDistance, isMounted]);
 
   // Zoom in function
   const zoomIn = () => {
@@ -433,13 +444,13 @@ export default function InfiniteCanvas() {
       </div>
       
       {/* Instruction Overlay - Appears for 5 seconds */}
-      {showTip && (
+      {showTip && isMounted && (
         <div className="fixed bottom-16 left-1/2 transform -translate-x-1/2 z-20 bg-qwerty-dark-blue text-qwerty-white px-6 py-3 rounded-full shadow-lg text-center">
           <p className="text-sm font-telegraph-medium">
             Drag to explore the infinite canvas!
             <br />
             <span className="text-xs opacity-80 mt-1 inline-block">
-              {window.innerWidth < 768 ? 
+              {typeof window !== 'undefined' && window.innerWidth < 768 ? 
                 "Pinch with two fingers to zoom in and out" : 
                 "Hold Ctrl and use mouse wheel to zoom"}
             </span>
@@ -481,7 +492,7 @@ export default function InfiniteCanvas() {
       )}
       
       {/* Debug Panel */}
-      {showDebug && (
+      {showDebug && isMounted && (
         <div className="fixed bottom-4 right-4 z-30 bg-white border border-gray-300 rounded-lg shadow-lg p-3 text-xs">
           <div className="font-bold mb-1">Debug Mode</div>
           <div>Press D to toggle debug view</div>
@@ -490,8 +501,8 @@ export default function InfiniteCanvas() {
           <div>Press +/- to zoom in/out</div>
           <div className="mt-2">
             <span className="font-medium">Current View:</span> 
-            X: {Math.round(-position.x + window.innerWidth/2)}, 
-            Y: {Math.round(-position.y + window.innerHeight/2)}
+            X: {Math.round(-position.x + (typeof window !== 'undefined' ? window.innerWidth/2 : 0))}, 
+            Y: {Math.round(-position.y + (typeof window !== 'undefined' ? window.innerHeight/2 : 0))}
           </div>
           <div>
             <span className="font-medium">Zoom:</span> {Math.round(zoomLevel * 100)}%
